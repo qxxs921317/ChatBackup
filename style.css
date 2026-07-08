@@ -1,0 +1,11 @@
+#chat_backup_button_bar {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #444;
+}
+
+#chat_backup_button_bar button {
+    flex: 1;
+}
