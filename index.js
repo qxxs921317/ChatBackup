@@ -28,14 +28,28 @@ async function fetchChatList(avatarFile) {
     return res.json(); // 배열, 각 항목에 file_name 등이 들어있음
 }
 
-async function fetchChatContent(chName, fileName, avatarFile) {
+async function fetchChatContentRaw(chName, fileName, avatarFile) {
     const res = await fetch("/api/chats/get", {
         method: "POST",
         headers: getRequestHeaders(),
         body: JSON.stringify({ ch_name: chName, file_name: fileName, avatar_url: avatarFile }),
     });
     if (!res.ok) throw new Error(`'${fileName}' 챗 내용을 가져오지 못했어 (status ${res.status})`);
-    return res.json(); // 메시지 객체 배열 (첫 줄은 메타데이터일 수 있음)
+    return res.json();
+}
+
+// 서버가 file_name에 확장자 유무를 다르게 기대할 수 있어서, 비어오면 반대 형태로 재시도한다
+async function fetchChatContent(chName, fileName, avatarFile) {
+    const first = await fetchChatContentRaw(chName, fileName, avatarFile);
+    if (Array.isArray(first) && first.length > 0) return first;
+
+    const altName = fileName.toLowerCase().endsWith(".jsonl")
+        ? fileName.slice(0, -".jsonl".length)
+        : fileName + ".jsonl";
+
+    console.warn(`[ChatBackup] '${fileName}' 응답 비어서 '${altName}'로 재시도`);
+    const second = await fetchChatContentRaw(chName, altName, avatarFile);
+    return second;
 }
 
 function messagesToJsonl(messages) {
