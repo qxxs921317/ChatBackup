@@ -3,7 +3,7 @@ import { getRequestHeaders } from "../../../../script.js";
 
 // ST 채팅 파일 관리 팝업이 뜰 때 그 안에 버튼 두 개를 심는다.
 // ST 버전에 따라 팝업 컨테이너 id가 다를 수 있어서, 후보를 여러 개 시도한다.
-const POPUP_CANDIDATES = ["#select_chat_popup", "#shadow_select_chat_popup", ".select_chat_wrapper"];
+const POPUP_CANDIDATES = ["#select_chat_popup", "#shadow_select_chat_popup"];
 const BUTTON_BAR_ID = "chat_backup_button_bar";
 
 function getCurrentCharacter() {
@@ -58,7 +58,10 @@ function downloadText(filename, text) {
 }
 
 function safeFileName(name) {
-    return (name || "chat").replace(/[\\/:*?"<>|]/g, "_");
+    let n = (name || "chat").replace(/[\\/:*?"<>|]/g, "_");
+    // 이미 .jsonl로 끝나면 확장자를 또 붙이지 않도록 제거해둔다
+    n = n.replace(/\.jsonl$/i, "");
+    return n;
 }
 
 async function handleIndividualDownload() {
@@ -77,6 +80,11 @@ async function handleIndividualDownload() {
             try {
                 const messages = await fetchChatContent(character.name, fileName, character.avatar);
                 console.log(`[ChatBackup] '${fileName}' 메시지 수:`, messages?.length);
+                if (!Array.isArray(messages) || messages.length === 0) {
+                    console.warn(`[ChatBackup] '${fileName}' 응답이 비어있음:`, messages);
+                    toastr.warning(`'${fileName}' 내용이 비어있게 왔어 (건너뜀)`);
+                    continue;
+                }
                 const jsonl = messagesToJsonl(messages);
                 downloadText(`${safeFileName(fileName)}.jsonl`, jsonl);
                 await new Promise(r => setTimeout(r, 300));
@@ -111,6 +119,11 @@ async function handleZipDownload() {
             const fileName = entry.file_name;
             try {
                 const messages = await fetchChatContent(character.name, fileName, character.avatar);
+                if (!Array.isArray(messages) || messages.length === 0) {
+                    console.warn(`[ChatBackup] '${fileName}' 응답이 비어있음:`, messages);
+                    toastr.warning(`'${fileName}' 내용이 비어있게 왔어 (건너뜀)`);
+                    continue;
+                }
                 zip.file(`${safeFileName(fileName)}.jsonl`, messagesToJsonl(messages));
             } catch (e) {
                 console.error(`[ChatBackup] '${fileName}' 실패:`, e);
