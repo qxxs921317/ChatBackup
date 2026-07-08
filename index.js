@@ -64,25 +64,31 @@ async function handleIndividualDownload() {
     const character = getCurrentCharacter();
     if (!character) { toastr.warning("현재 열려있는 캐릭터가 없어."); return; }
 
-    toastr.info("챗 목록 가져오는 중...");
-    const list = await fetchChatList(character.avatar);
-    if (!list || list.length === 0) { toastr.warning("이 캐릭터의 챗 파일이 없어."); return; }
+    try {
+        toastr.info("챗 목록 가져오는 중...");
+        const list = await fetchChatList(character.avatar);
+        console.log("[ChatBackup] 챗 목록:", list);
+        if (!list || list.length === 0) { toastr.warning("이 캐릭터의 챗 파일이 없어 (목록이 비어있음)."); return; }
 
-    for (let i = 0; i < list.length; i++) {
-        const entry = list[i];
-        const fileName = entry.file_name;
-        try {
-            const messages = await fetchChatContent(character.name, fileName, character.avatar);
-            const jsonl = messagesToJsonl(messages);
-            downloadText(`${safeFileName(fileName)}.jsonl`, jsonl);
-            // 브라우저가 여러 다운로드를 한꺼번에 막는 걸 피하려고 살짝 텀을 둔다
-            await new Promise(r => setTimeout(r, 300));
-        } catch (e) {
-            console.error(e);
-            toastr.error(`'${fileName}' 다운로드 실패`);
+        for (let i = 0; i < list.length; i++) {
+            const entry = list[i];
+            const fileName = entry.file_name;
+            try {
+                const messages = await fetchChatContent(character.name, fileName, character.avatar);
+                console.log(`[ChatBackup] '${fileName}' 메시지 수:`, messages?.length);
+                const jsonl = messagesToJsonl(messages);
+                downloadText(`${safeFileName(fileName)}.jsonl`, jsonl);
+                await new Promise(r => setTimeout(r, 300));
+            } catch (e) {
+                console.error(`[ChatBackup] '${fileName}' 실패:`, e);
+                toastr.error(`'${fileName}' 다운로드 실패: ${e.message}`);
+            }
         }
+        toastr.success(`총 ${list.length}개 챗 파일 다운로드 완료!`);
+    } catch (e) {
+        console.error("[ChatBackup] 목록 가져오기 실패:", e);
+        toastr.error(`챗 목록을 가져오지 못했어: ${e.message}`);
     }
-    toastr.success(`총 ${list.length}개 챗 파일 다운로드 완료!`);
 }
 
 async function handleZipDownload() {
@@ -93,32 +99,38 @@ async function handleZipDownload() {
     const character = getCurrentCharacter();
     if (!character) { toastr.warning("현재 열려있는 캐릭터가 없어."); return; }
 
-    toastr.info("챗 목록 가져오는 중...");
-    const list = await fetchChatList(character.avatar);
-    if (!list || list.length === 0) { toastr.warning("이 캐릭터의 챗 파일이 없어."); return; }
+    try {
+        toastr.info("챗 목록 가져오는 중...");
+        const list = await fetchChatList(character.avatar);
+        console.log("[ChatBackup] 챗 목록:", list);
+        if (!list || list.length === 0) { toastr.warning("이 캐릭터의 챗 파일이 없어 (목록이 비어있음)."); return; }
 
-    const zip = new JSZip();
-    for (const entry of list) {
-        const fileName = entry.file_name;
-        try {
-            const messages = await fetchChatContent(character.name, fileName, character.avatar);
-            zip.file(`${safeFileName(fileName)}.jsonl`, messagesToJsonl(messages));
-        } catch (e) {
-            console.error(e);
-            toastr.error(`'${fileName}' 포함 실패`);
+        const zip = new JSZip();
+        for (const entry of list) {
+            const fileName = entry.file_name;
+            try {
+                const messages = await fetchChatContent(character.name, fileName, character.avatar);
+                zip.file(`${safeFileName(fileName)}.jsonl`, messagesToJsonl(messages));
+            } catch (e) {
+                console.error(`[ChatBackup] '${fileName}' 실패:`, e);
+                toastr.error(`'${fileName}' 포함 실패: ${e.message}`);
+            }
         }
+        const blob = await zip.generateAsync({ type: "blob" });
+        downloadBlob(`${safeFileName(character.name)}_chats.zip`, blob);
+        toastr.success(`총 ${list.length}개 챗 파일을 zip으로 다운로드했어!`);
+    } catch (e) {
+        console.error("[ChatBackup] 목록 가져오기 실패:", e);
+        toastr.error(`챗 목록을 가져오지 못했어: ${e.message}`);
     }
-    const blob = await zip.generateAsync({ type: "blob" });
-    downloadBlob(`${safeFileName(character.name)}_chats.zip`, blob);
-    toastr.success(`총 ${list.length}개 챗 파일을 zip으로 다운로드했어!`);
 }
 
 function buildButtonBar() {
     const bar = document.createElement("div");
     bar.id = BUTTON_BAR_ID;
     bar.innerHTML = `
-        <button id="chat_backup_individual" class="menu_button">📥 전체 개별 다운로드</button>
-        <button id="chat_backup_zip" class="menu_button">🗜️ 전체 zip 다운로드</button>
+        <button id="chat_backup_individual" class="menu_button" title="전체 개별 다운로드">📥</button>
+        <button id="chat_backup_zip" class="menu_button" title="전체 zip 다운로드">🗜️</button>
     `;
     bar.querySelector("#chat_backup_individual").addEventListener("click", handleIndividualDownload);
     bar.querySelector("#chat_backup_zip").addEventListener("click", handleZipDownload);
