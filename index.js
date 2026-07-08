@@ -1,4 +1,5 @@
 import { getContext } from "../../../extensions.js";
+import { getRequestHeaders } from "../../../../script.js";
 
 // ST 채팅 파일 관리 팝업이 뜰 때 그 안에 버튼 두 개를 심는다.
 // ST 버전에 따라 팝업 컨테이너 id가 다를 수 있어서, 후보를 여러 개 시도한다.
@@ -20,7 +21,7 @@ function getCurrentCharacter() {
 async function fetchChatList(avatarFile) {
     const res = await fetch("/api/characters/chats", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ avatar_url: avatarFile }),
     });
     if (!res.ok) throw new Error("챗 목록을 가져오지 못했어 (status " + res.status + ")");
@@ -30,7 +31,7 @@ async function fetchChatList(avatarFile) {
 async function fetchChatContent(chName, fileName, avatarFile) {
     const res = await fetch("/api/chats/get", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ ch_name: chName, file_name: fileName, avatar_url: avatarFile }),
     });
     if (!res.ok) throw new Error(`'${fileName}' 챗 내용을 가져오지 못했어 (status ${res.status})`);
